@@ -213,7 +213,13 @@ class Gemma2RotaryEmbedding(GemmaRotaryEmbedding):
     pass
 
 
-def gemma_eager_attention_forward(config, query, key, value, mask, **_kwargs):
+def gemma_eager_attention_forward(    config: Gemma2Config,
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    mask: Optional[torch.Tensor],
+    **_kwargs,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     key_states = repeat_kv(key, config.num_key_value_groups)
     value_states = repeat_kv(value, config.num_key_value_groups)
 
@@ -290,9 +296,12 @@ def gemma_flex_attention_forward(config, query, key, value, mask, output_attenti
         return_lse=output_attentions,
     )
     if not output_attentions:
-        return attn_output, None
+        attn_weights = None
     else:
-        return attn_output[0], attn_output[1]
+        attn_output, attn_weights = attn_output
+
+    attn_output = attn_output.transpose(1, 2).contiguous()
+    return attn_output, attn_weights
 
 
 def gemma_sdpa_attention_forward(config, query, key, value, mask, **_kwargs):
@@ -323,6 +332,7 @@ def gemma_sdpa_attention_forward(config, query, key, value, mask, **_kwargs):
         is_causal=is_causal,
         scale=config.scaling,
     )
+    attn_output = attn_output.transpose(1, 2).contiguous()
     return attn_output, None
 
 
