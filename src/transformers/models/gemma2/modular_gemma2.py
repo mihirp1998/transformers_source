@@ -214,7 +214,8 @@ class Gemma2RotaryEmbedding(GemmaRotaryEmbedding):
     pass
 
 
-def gemma_eager_attention_forward(    config: Gemma2Config,
+def gemma_eager_attention_forward(
+    config: Gemma2Config,
     query: torch.Tensor,
     key: torch.Tensor,
     value: torch.Tensor,
@@ -344,8 +345,10 @@ ALL_ATTENTION_FUNCTION = {
     "gemma_sdpa": gemma_sdpa_attention_forward,
 }
 
+
 class Gemma2Attention(GemmaAttention):
     pass
+
 
 class Gemma2DecoderLayer(GemmaDecoderLayer):
     def __init__(self, config: Gemma2Config, layer_idx: int):
@@ -416,6 +419,7 @@ class Gemma2DecoderLayer(GemmaDecoderLayer):
 
 class Gemma2PreTrainedModel(GemmaPreTrainedModel):
     pass
+
 
 class Gemma2Model(GemmaModel, Gemma2PreTrainedModel):
     def __init__(self, config: Gemma2Config):

@@ -347,6 +347,7 @@ class GemmaRMSNorm(nn.Module):
 
 ALL_LAYERNORM_LAYERS.append(GemmaRMSNorm)
 
+
 class GemmaDecoderLayer(LlamaDecoderLayer):
     def __init__(self, config: GemmaConfig, layer_idx: int):
         super().__init__(config, layer_idx)
@@ -355,7 +356,6 @@ class GemmaDecoderLayer(LlamaDecoderLayer):
 
 
 class GemmaModel(LlamaModel):
-
     def forward(
         self,
         input_ids: torch.LongTensor = None,
