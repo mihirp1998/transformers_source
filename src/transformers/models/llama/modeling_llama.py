@@ -19,11 +19,12 @@
 # limitations under the License.
 import math
 from typing import List, Optional, Tuple, Union
-
+import ipdb
+st = ipdb.set_trace
 import torch
 import torch.utils.checkpoint
 from torch import nn
-
+import torch.nn.functional as F
 from ...activations import ACT2FN
 from ...cache_utils import Cache, DynamicCache, StaticCache
 from ...generation import GenerationMixin
@@ -799,11 +800,15 @@ class LlamaModel(LlamaPreTrainedModel):
         config: LlamaConfig
     """
 
-    def __init__(self, config: LlamaConfig):
+    def __init__(self, config: LlamaConfig, cfg=None):
         super().__init__(config)
+        self.cfg = cfg
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
-
+        if cfg.use_special_tokens:
+            self.embed_special_tokens =  nn.Embedding(cfg.num_special_tokens, config.hidden_size)
+        else:
+            self.embed_special_tokens = None
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList(
             [LlamaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
@@ -856,7 +861,11 @@ class LlamaModel(LlamaPreTrainedModel):
             use_cache = False
 
         if inputs_embeds is None:
-            inputs_embeds = self.embed_tokens(input_ids)
+            if self.embed_special_tokens is not None:
+                embed_tokens = torch.cat([self.embed_tokens.weight[:-self.cfg.num_special_tokens], self.embed_special_tokens.weight], dim=0)
+                inputs_embeds = F.embedding(input_ids, embed_tokens, self.padding_idx)
+            else:
+                inputs_embeds = self.embed_tokens(input_ids)
 
         # kept for BC (non `Cache` `past_key_values` inputs)
         return_legacy_cache = False
@@ -1078,11 +1087,17 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
     _tied_weights_keys = ["lm_head.weight"]
     _tp_plan = {"lm_head": "colwise_rep"}
 
-    def __init__(self, config):
+    def __init__(self, config, cfg=None):
         super().__init__(config)
-        self.model = LlamaModel(config)
+        self.cfg = cfg
+        self.model = LlamaModel(config, cfg=cfg)
         self.vocab_size = config.vocab_size
+        
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        if cfg.use_special_tokens:
+            self.lm_head_special = nn.Linear(config.hidden_size, cfg.num_special_tokens, bias=False)
+        else:
+            self.lm_head_special = None
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -1176,7 +1191,11 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
 
         hidden_states = outputs[0]
         # Only compute necessary logits, and do not upcast them to float if we are not computing the loss
-        logits = self.lm_head(hidden_states[:, -num_logits_to_keep:, :])
+        if self.lm_head_special is not None:
+            lm_head_weight = torch.cat([self.lm_head.weight[:-self.cfg.num_special_tokens], self.lm_head_special.weight], dim=0)
+            logits = F.linear(hidden_states[:, -num_logits_to_keep:, :], lm_head_weight)
+        else:
+            logits = self.lm_head(hidden_states[:, -num_logits_to_keep:, :])
 
         loss = None
         if labels is not None:

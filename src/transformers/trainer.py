@@ -54,7 +54,8 @@ from huggingface_hub import ModelCard, create_repo, upload_folder
 from packaging import version
 from torch import nn
 from torch.utils.data import DataLoader, Dataset, IterableDataset, RandomSampler, SequentialSampler
-
+import ipdb
+st = ipdb.set_trace
 from . import __version__
 from .configuration_utils import PretrainedConfig
 from .data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
@@ -413,6 +414,7 @@ class Trainer:
         self,
         model: Union[PreTrainedModel, nn.Module] = None,
         args: TrainingArguments = None,
+        cfg = None,
         data_collator: Optional[DataCollator] = None,
         train_dataset: Optional[Union[Dataset, IterableDataset, "datasets.Dataset"]] = None,
         eval_dataset: Optional[Union[Dataset, Dict[str, Dataset], "datasets.Dataset"]] = None,
@@ -449,6 +451,7 @@ class Trainer:
                 )
 
         self.args = args
+        self.cfg = cfg
         self.compute_loss_func = compute_loss_func
         # Seed must be set before instantiating the model when using model
         enable_full_determinism(self.args.seed) if self.args.full_determinism else set_seed(self.args.seed)
