@@ -805,7 +805,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.cfg = cfg
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
-        if cfg.use_special_tokens:
+        if cfg is not None and cfg.use_special_tokens:
             self.embed_special_tokens =  nn.Embedding(cfg.num_special_tokens, config.hidden_size)
         else:
             self.embed_special_tokens = None
@@ -1094,7 +1094,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
         self.vocab_size = config.vocab_size
         
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-        if cfg.use_special_tokens:
+        if cfg is not None and cfg.use_special_tokens:
             self.lm_head_special = nn.Linear(config.hidden_size, cfg.num_special_tokens, bias=False)
         else:
             self.lm_head_special = None

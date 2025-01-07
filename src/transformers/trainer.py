@@ -793,7 +793,7 @@ class Trainer:
             num_devices = xr.global_runtime_device_count()
             xs.set_global_mesh(xs.Mesh(np.array(range(num_devices)), (num_devices, 1), axis_names=("fsdp", "tensor")))
         self.is_fsdp_xla_v1_enabled = self.is_fsdp_xla_enabled and not self.is_fsdp_xla_v2_enabled
-
+                
     @property
     def tokenizer(self) -> Optional[PreTrainedTokenizerBase]:
         logger.warning("Trainer.tokenizer is now deprecated. You should use Trainer.processing_class instead.")
@@ -2513,7 +2513,7 @@ class Trainer:
                         steps_trained_progress_bar = None
 
                     if step % args.gradient_accumulation_steps == 0:
-                        self.control = self.callback_handler.on_step_begin(args, self.state, self.control)
+                        self.control = self.callback_handler.on_step_begin(args, self.state, self.control, accelerator=self.accelerator)
 
                     # We explicitly want to avoid relying on `accelerator.accumulate` for generation training
                     context = (
@@ -3046,6 +3046,7 @@ class Trainer:
             self.log(logs, start_time)
 
         metrics = None
+        
         if self.control.should_evaluate:
             metrics = self._evaluate(trial, ignore_keys_for_eval)
             is_new_best_metric = self._determine_best_metric(metrics=metrics, trial=trial)
@@ -4043,7 +4044,6 @@ class Trainer:
 
         # memory metrics - must set up as early as possible
         self._memory_tracker.start()
-
         eval_dataloader = self.get_eval_dataloader(eval_dataset)
         if self.is_fsdp_xla_v2_enabled:
             eval_dataloader = tpu_spmd_dataloader(eval_dataloader)
@@ -4051,6 +4051,7 @@ class Trainer:
         start_time = time.time()
 
         eval_loop = self.prediction_loop if self.args.use_legacy_prediction_loop else self.evaluation_loop
+
         output = eval_loop(
             eval_dataloader,
             description="Evaluation",
@@ -4060,12 +4061,13 @@ class Trainer:
             ignore_keys=ignore_keys,
             metric_key_prefix=metric_key_prefix,
         )
-
+        
         total_batch_size = self.args.eval_batch_size * self.args.world_size
         if f"{metric_key_prefix}_jit_compilation_time" in output.metrics:
             start_time += output.metrics[f"{metric_key_prefix}_jit_compilation_time"]
         if f"{metric_key_prefix}_model_preparation_time" in output.metrics:
             start_time += output.metrics[f"{metric_key_prefix}_model_preparation_time"]
+                
         output.metrics.update(
             speed_metrics(
                 metric_key_prefix,
@@ -4203,7 +4205,7 @@ class Trainer:
                 model = model.to(dtype=torch.bfloat16, device=args.device)
 
         batch_size = self.args.eval_batch_size
-
+        
         logger.info(f"\n***** Running {description} *****")
         if has_length(dataloader):
             logger.info(f"  Num examples = {self.num_examples(dataloader)}")
@@ -4246,6 +4248,7 @@ class Trainer:
 
             # Prediction step
             losses, logits, labels = self.prediction_step(model, inputs, prediction_loss_only, ignore_keys=ignore_keys)
+            
             main_input_name = getattr(self.model, "main_input_name", "input_ids")
             inputs_decode = (
                 self._prepare_input(inputs[main_input_name]) if "inputs" in args.include_for_metrics else None

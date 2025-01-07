@@ -478,11 +478,11 @@ class CallbackHandler(TrainerCallback):
     def on_epoch_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl):
         return self.call_event("on_epoch_end", args, state, control)
 
-    def on_step_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl):
+    def on_step_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, accelerator=None):
         control.should_log = False
         control.should_evaluate = False
         control.should_save = False
-        return self.call_event("on_step_begin", args, state, control)
+        return self.call_event("on_step_begin", args, state, control, accelerator=accelerator)
 
     def on_pre_optimizer_step(self, args: TrainingArguments, state: TrainerState, control: TrainerControl):
         return self.call_event("on_pre_optimizer_step", args, state, control)
