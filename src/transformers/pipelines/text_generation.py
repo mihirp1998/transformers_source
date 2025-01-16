@@ -367,6 +367,7 @@ class TextGenerationPipeline(Pipeline):
         if "generation_config" not in generate_kwargs:
             generate_kwargs["generation_config"] = self.generation_config
 
+        
         generated_sequence = self.model.generate(input_ids=input_ids, attention_mask=attention_mask, **generate_kwargs)
         out_b = generated_sequence.shape[0]
         if self.framework == "pt":
